@@ -13,6 +13,9 @@ public class ClientHandler implements Runnable {
     private BufferedWriter output;
     private String clientUsername;
 
+    public ClientHandler() {
+    }
+
     public ClientHandler(Socket socket) {
 
         try {
@@ -21,8 +24,8 @@ public class ClientHandler implements Runnable {
             this.output = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             this.clientUsername = input.readLine();
             clientHandlers.add(this);
-            broadcastMessage("SERVER: " + clientUsername + " è entrato nella chat");
-            broadcastMessage("SERVER: lista utenti: " + sendClientList());
+            broadcastMessage("(Server): " + clientUsername + " si è unito alla chat!");
+            broadcastMessage("(Server) Lista utenti: " + getClientNameList());
 
         } catch (IOException e) {
             closeEverything(socket, input, output);
@@ -38,12 +41,15 @@ public class ClientHandler implements Runnable {
             try {
 
                 messageFromClient = input.readLine();
+                String stringa = messageFromClient.substring(messageFromClient.indexOf(":") + 2); // ottengo il
+                                                                                                    // messaggio senza
+                                                                                                    // il nome del
+                                                                                                    // mittente
+                if (clientHandlers.size() == 1) {
+                    privateMessage("Impossibile inoltrare il messaggio.");
+                } else {
 
-                if (messageFromClient.contains("@msg")) {
-                    String stringa = messageFromClient.substring(messageFromClient.indexOf(":") + 2); // ottengo il
-                                                                                                      // messaggio senza
-                                                                                                      // il nome del
-                                                                                                      // mittente
+                    System.out.println(stringa);
                     if (stringa.startsWith("@msg")) {
                         String splittedMessage[] = stringa.split("@");
                         String message = "";
@@ -51,15 +57,21 @@ public class ClientHandler implements Runnable {
                             message += splittedMessage[i];
                         }
                         privateMessage(splittedMessage[2], message);
+
+                    } else if (stringa.startsWith("@lista")) {
+                        sendClientNameList(getClientNameList());
+                    } else if (stringa.contains("@esci")) {
+                        removeClientHandler();
+                    } else {
+                        broadcastMessage(messageFromClient);
                     }
-                } else {
-                    broadcastMessage(messageFromClient);
                 }
             } catch (IOException e) {
                 closeEverything(socket, input, output);
                 break;
             }
         }
+
     }
 
     public void broadcastMessage(String messageToSend) {
@@ -76,12 +88,24 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    public void privateMessage(String messaggio) {
+        for (ClientHandler clientHandler : clientHandlers) {
+            try {
+                if (clientUsername.equals(clientHandler.clientUsername)) {
+                    clientHandler.output.write("(Server): " + messaggio + '\n');
+                    clientHandler.output.flush(); // svuota il buffer
+                }
+            } catch (IOException e) {
+                closeEverything(socket, input, output);
+            }
+        }
+    }
+
     public void privateMessage(String nome, String messaggio) {
-        System.out.println("sono nel metodo messaggi privati!");
         for (ClientHandler clientHandler : clientHandlers) {
             try {
                 if (nome.equals(clientHandler.clientUsername)) {
-                    clientHandler.output.write("(messaggio privato): " + messaggio + '\n');
+                    clientHandler.output.write("(privato) " + clientUsername + ": " + messaggio + '\n');
                     clientHandler.output.flush(); // svuota il buffer
                 }
             } catch (IOException e) {
@@ -92,10 +116,10 @@ public class ClientHandler implements Runnable {
 
     public void removeClientHandler() {
         clientHandlers.remove(this);
-        broadcastMessage("SERVER: " + clientUsername + " è uscito dalla chat");
+        broadcastMessage("(Server): " + clientUsername + " è uscito dalla chat");
     }
 
-    public String sendClientList() {
+    public String getClientNameList() {
         String clients = "";
 
         for (ClientHandler clientHandler : clientHandlers) {
@@ -103,6 +127,21 @@ public class ClientHandler implements Runnable {
         }
 
         return clients;
+    }
+
+    public void sendClientNameList(String lista) {
+        for (ClientHandler clientHandler : clientHandlers) {
+            try {
+                if (clientHandler.clientUsername.equals(clientUsername)) {
+                    clientHandler.output.write("(Server) Lista utenti: " + lista + '\n');
+                    clientHandler.output.flush(); // svuota il buffer
+                    break;
+                }
+            } catch (IOException e) {
+                closeEverything(socket, input, output);
+
+            }
+        }
     }
 
     public void closeEverything(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter) {
