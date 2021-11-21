@@ -38,8 +38,23 @@ public class ClientHandler implements Runnable {
             try {
 
                 messageFromClient = input.readLine();
-                    broadcastMessage(messageFromClient);
 
+                if (messageFromClient.contains("@msg")) {
+                    String stringa = messageFromClient.substring(messageFromClient.indexOf(":") + 2); // ottengo il
+                                                                                                      // messaggio senza
+                                                                                                      // il nome del
+                                                                                                      // mittente
+                    if (stringa.startsWith("@msg")) {
+                        String splittedMessage[] = stringa.split("@");
+                        String message = "";
+                        for (int i = 3; i < splittedMessage.length; i++) {
+                            message += splittedMessage[i];
+                        }
+                        privateMessage(splittedMessage[2], message);
+                    }
+                } else {
+                    broadcastMessage(messageFromClient);
+                }
             } catch (IOException e) {
                 closeEverything(socket, input, output);
                 break;
@@ -53,6 +68,20 @@ public class ClientHandler implements Runnable {
             try {
                 if (!clientHandler.clientUsername.equals(clientUsername)) {
                     clientHandler.output.write(messageToSend + '\n');
+                    clientHandler.output.flush(); // svuota il buffer
+                }
+            } catch (IOException e) {
+                closeEverything(socket, input, output);
+            }
+        }
+    }
+
+    public void privateMessage(String nome, String messaggio) {
+        System.out.println("sono nel metodo messaggi privati!");
+        for (ClientHandler clientHandler : clientHandlers) {
+            try {
+                if (nome.equals(clientHandler.clientUsername)) {
+                    clientHandler.output.write("(messaggio privato): " + messaggio + '\n');
                     clientHandler.output.flush(); // svuota il buffer
                 }
             } catch (IOException e) {
